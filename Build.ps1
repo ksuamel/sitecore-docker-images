@@ -16,7 +16,7 @@ param(
     [string[]]$SitecoreVersion = @("10.1.0"),
     [ValidateSet("xm", "xp", "xc", "xp0")]
     [string[]]$Topology = @("xm", "xp", "xp0"),
-    [ValidateSet("20H2", "2004", "1909", "1903", "ltsc2019", "linux")]
+    [ValidateSet("20H2", "2004", "1909", "1903", "ltsc2019", "linux", "ltsc2022")]
     [string[]]$OSVersion = @("ltsc2019"),
     [Parameter()]
     [switch]$IncludeSpe,
@@ -99,6 +99,7 @@ $windowsVersionMapping = @{
     "1909"     = "1909"
     "1903"     = "1903"
     "ltsc2019" = "1809"
+	"ltsc2022" = "ltsc2022"
 }
 
 filter LinuxFilter {
@@ -134,24 +135,28 @@ if (!$IncludeExperimental) {
     Write-Message "Excluding experimental images."
     $availableSpecs = $availableSpecs | Where-Object { !$_.Experimental }
 }
-
+Write-Host "2"
 $availableTags = $availableSpecs
+Write-Host $availableTags
 $defaultTags = $availableTags | Where-Object { $_.Tag -like "mssql-developer:*" -or $_.Tag -like "sitecore-openjdk:*" }
 $xpMiscTags = $availableTags | Where-Object { $_.Tag -like "sitecore-certificates:*" }
 $xcMiscTags = $availableTags | Where-Object { $_.Tag -like "sitecore-certificates:*" -or $_.Tag -like "sitecore-redis:*" }
 
+Write-Host "3"
 $assetTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore(-custom)?-assets:.*" }
 $moduleAssetTags = $availableTags | Where-Object { $_.Tag -like "community/modules/*" }
 $xmTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xm([1]{0,1})(-custom)?-(?!.*spe|.*sxa|.*jss|.*headless).*:.*" }
 $xpTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xp([1]{0,1})(-custom)?-(?!.*spe|.*sxa|.*jss|.*headless|.*sh).*:.*" }
 $xp0Tags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xp0(-custom)?-(?!.*spe|.*sxa|.*jss|.*headless).*:.*" }
 
+Write-Host "4"
 $xcTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xc(-custom)?-(?!.*spe|.*sxa|.*jss|.*headless).*:.*" }
 
 $xmSpeTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xm([1]{0,1})(-custom)?-(spe)(?!.*sxa).*:.*" }
 $xmSxaTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xm([1]{0,1})(-custom)?-(.*sxa)(?!.*jss|.*headless).*:.*" }
 $xmJssTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xm([1]{0,1})(-custom)?-(.*jss|.*headless).*:.*" }
 
+Write-Host "5"
 $xp0SpeTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xp0(-custom)?-(spe)(?!.*sxa).*:.*" }
 $xp0SxaTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xp0(-custom)?-(.*sxa)(?!.*jss|.*headless).*:.*" }
 $xp0JssTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecore-xp0(-custom)?-(.*jss|.*headless).*:.*" }
@@ -166,6 +171,7 @@ $xcSxaTags = $availableTags | Where-Object { $_.Tag -match "(community/)?sitecor
 
 $knownTags = $defaultTags + $xpMiscTags + $xcMiscTags + $assetTags + $xmTags + $xpTags + $xp0Tags + $xcTags + $xmSpeTags + $xp0SpeTags + $xpSpeTags + $xcSpeTags + $xmSxaTags + $xp0SxaTags + $xpSxaTags + $xcSxaTags + $xmJssTags + $xp0JssTags + $xpJssTags + $xpShTags
 
+Write-Host "6"
 if ($IncludeModuleAssets) {
     $knownTags += $moduleAssetTags
 }
@@ -178,6 +184,7 @@ else {
 # These tags are not yet classified and no dependency check is made at this point to know which image it belongs to.
 $catchAllTags = [System.Linq.Enumerable]::Except([string[]]$availableTags, [string[]]$knownTags)
 
+Write-Host "7"
 foreach ($wv in $OSVersion) {
 
     [regex]$versionReg = "[789]\.[0-9]\.[0-9]"
@@ -193,6 +200,7 @@ foreach ($wv in $OSVersion) {
         $xcMiscTags | WindowsFilter -Version $wv | ForEach-Object { $tags.Add($_) > $null }
     }
 
+Write-Host "8"
     foreach ($scv in $SitecoreVersion) {
         $assetTags | SitecoreFilter -Version $scv | WindowsFilter -Version $wv | ForEach-Object { $tags.Add($_) > $null }
         if ($IncludeModuleAssets) {
@@ -294,13 +302,17 @@ foreach ($wv in $OSVersion) {
     }
 }
 
-[System.Collections.ArrayList]$tags = $tags | Sort-Object -Property @{Expression = "Tag"} -Unique
+Write-Host $tags
+Write-Host $tags | Sort-Object -Property @{Expression = "Tag"} -Unique
+#[System.Collections.ArrayList]$tags = $tags | Sort-Object -Property @{Expression = "Tag"} -Unique
 
 if ($tags -and $OutputJson) {
     # if -OutputJson, send $tags for formatting and output to working folder
     $json = Format-BuildOutputToJson $($tags | Select-Object -ExpandProperty Tag)
     $json | Set-Content -Path (Join-Path $PWD "docker-images.json") -Force
 }
+
+Write-Host "10"
 
 if ($SkipExistingImage) {
     Write-Message "Existing images will be excluded from the build."
@@ -312,6 +324,8 @@ if ($SkipExistingImage) {
         }
     }
 }
+
+Write-Host "11"
 
 if ($tags) {
     Write-Message "The following images will be built:"
